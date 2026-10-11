@@ -67,35 +67,10 @@ fi
 [[ -d "$ZSH_CACHE_DIR/completions" ]] || mkdir -p "$ZSH_CACHE_DIR/completions"
 (( ${fpath[(Ie)$ZSH_CACHE_DIR/completions]} )) || fpath=("$ZSH_CACHE_DIR/completions" $fpath)
 
-# Check for updates on initial load...
-source "$ZSH/tools/check_for_upgrade.sh"
-
 # Initializes Oh My Zsh
-
-# add a function path
-fpath=($ZSH/{functions,completions} $ZSH_CUSTOM/{functions,completions} $fpath)
 
 # Load all stock functions (from $fpath files) called below.
 autoload -U compaudit compinit zrecompile
-
-is_plugin() {
-  local base_dir=$1
-  local name=$2
-  builtin test -f $base_dir/plugins/$name/$name.plugin.zsh \
-    || builtin test -f $base_dir/plugins/$name/_$name
-}
-
-# Add all defined plugins to fpath. This must be done
-# before running compinit.
-for plugin ($plugins); do
-  if is_plugin "$ZSH_CUSTOM" "$plugin"; then
-    fpath=("$ZSH_CUSTOM/plugins/$plugin" $fpath)
-  elif is_plugin "$ZSH" "$plugin"; then
-    fpath=("$ZSH/plugins/$plugin" $fpath)
-  else
-    echo "[oh-my-zsh] plugin '$plugin' not found"
-  fi
-done
 
 # Figure out the SHORT hostname
 if [[ "$OSTYPE" = darwin* ]]; then
@@ -268,10 +243,7 @@ _omz_source() {
   local context filepath="$1"
 
   # Construct zstyle context based on path
-  case "$filepath" in
-  lib/*) context="lib:${filepath:t:r}" ;;         # :t = lib_name.zsh, :r = lib_name
-  plugins/*) context="plugins:${filepath:h:t}" ;; # :h = plugins/plugin_name, :t = plugin_name
-  esac
+  context="lib:${filepath:t:r}" # :t = lib_name.zsh, :r = lib_name
 
   local disable_aliases=0
   zstyle -T ":omz:${context}" aliases || disable_aliases=1
@@ -312,36 +284,5 @@ for lib_file ("$ZSH"/lib/*.zsh); do
 done
 unset lib_file
 
-# Load all of the plugins that were defined in ~/.zshrc
-for plugin ($plugins); do
-  _omz_source "plugins/$plugin/$plugin.plugin.zsh"
-done
-unset plugin
-
-# Load all of your custom configurations from custom/
-for config_file ("$ZSH_CUSTOM"/*.zsh(N)); do
-  source "$config_file"
-done
-unset config_file
-
-# Load the theme
-is_theme() {
-  local base_dir=$1
-  local name=$2
-  builtin test -f $base_dir/$name.zsh-theme
-}
-
-if [[ -n "$ZSH_THEME" ]]; then
-  if is_theme "$ZSH_CUSTOM" "$ZSH_THEME"; then
-    source "$ZSH_CUSTOM/$ZSH_THEME.zsh-theme"
-  elif is_theme "$ZSH_CUSTOM/themes" "$ZSH_THEME"; then
-    source "$ZSH_CUSTOM/themes/$ZSH_THEME.zsh-theme"
-  elif is_theme "$ZSH/themes" "$ZSH_THEME"; then
-    source "$ZSH/themes/$ZSH_THEME.zsh-theme"
-  else
-    echo "[oh-my-zsh] theme '$ZSH_THEME' not found"
-  fi
-fi
-
-# set completion colors to be the same as `ls`, after theme has been loaded
+# set completion colors to be the same as `ls`
 [[ -z "$LS_COLORS" ]] || zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
