@@ -19,6 +19,25 @@ fi
 # Load all stock functions (from $fpath files) called below.
 autoload -U compaudit compinit zrecompile
 
+is_plugin() {
+  local base_dir=$1
+  local name=$2
+  builtin test -f $base_dir/plugins/$name/$name.plugin.zsh \
+    || builtin test -f $base_dir/plugins/$name/_$name
+}
+
+# Add all defined plugins to fpath. This must be done before running
+# compinit, so plugin completions are found and included in the dump check.
+for plugin ($plugins); do
+  if is_plugin "$ZSH_CUSTOM" "$plugin"; then
+    fpath=("$ZSH_CUSTOM/plugins/$plugin" $fpath)
+  elif is_plugin "$ZSH" "$plugin"; then
+    fpath=("$ZSH/plugins/$plugin" $fpath)
+  else
+    echo "[oh-my-zsh] plugin '$plugin' not found"
+  fi
+done
+
 # Save the location of the current completion dump file.
 if [[ -z "$ZSH_COMPDUMP" ]]; then
   ZSH_COMPDUMP="${ZDOTDIR:-$HOME}/.zcompdump-${ZSH_VERSION}"
@@ -67,6 +86,18 @@ for config_file ("$ZSH_CUSTOM"/*.zsh(N)); do
   source "$config_file"
 done
 unset config_file
+
+# Source the plugins defined in $plugins. Plugin dirs were already added to
+# fpath above; completion-only plugins (a dir with just a _name file) need
+# no sourcing. Custom plugins win over built-ins with the same name.
+for plugin ($plugins); do
+  if [[ -f "$ZSH_CUSTOM/plugins/$plugin/$plugin.plugin.zsh" ]]; then
+    source "$ZSH_CUSTOM/plugins/$plugin/$plugin.plugin.zsh"
+  elif [[ -f "$ZSH/plugins/$plugin/$plugin.plugin.zsh" ]]; then
+    source "$ZSH/plugins/$plugin/$plugin.plugin.zsh"
+  fi
+done
+unset plugin is_plugin
 
 # set completion colors to be the same as `ls`
 [[ -z "$LS_COLORS" ]] || zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
