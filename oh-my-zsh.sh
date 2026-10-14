@@ -19,22 +19,21 @@ fi
 # Load all stock functions (from $fpath files) called below.
 autoload -U compaudit compinit zrecompile
 
-is_plugin() {
-  local base_dir=$1
-  local name=$2
-  builtin test -f $base_dir/plugins/$name/$name.plugin.zsh \
-    || builtin test -f $base_dir/plugins/$name/_$name
-}
+# Discover plugins: everything found in the custom and built-in plugin
+# directories is loaded, without consulting the $plugins array. A directory
+# counts as a plugin when it holds a .plugin.zsh or completion file, so empty
+# or foreign directories are skipped. Custom plugins win over built-ins with
+# the same name (typeset -U keeps the first match).
+typeset -Ua plugins
+plugins=("$ZSH_CUSTOM"/plugins/*/{_*,*.plugin.zsh}(-.N:h:t) "$ZSH"/plugins/*/{_*,*.plugin.zsh}(-.N:h:t))
 
-# Add all defined plugins to fpath. This must be done before running
+# Add all discovered plugins to fpath. This must be done before running
 # compinit, so plugin completions are found and included in the dump check.
-for plugin ($plugins); do
-  if is_plugin "$ZSH_CUSTOM" "$plugin"; then
+for plugin in $plugins; do
+  if [[ -d "$ZSH_CUSTOM/plugins/$plugin" ]]; then
     fpath=("$ZSH_CUSTOM/plugins/$plugin" $fpath)
-  elif is_plugin "$ZSH" "$plugin"; then
-    fpath=("$ZSH/plugins/$plugin" $fpath)
   else
-    echo "[oh-my-zsh] plugin '$plugin' not found"
+    fpath=("$ZSH/plugins/$plugin" $fpath)
   fi
 done
 
@@ -87,9 +86,9 @@ for config_file ("$ZSH_CUSTOM"/*.zsh(N)); do
 done
 unset config_file
 
-# Source the plugins defined in $plugins. Plugin dirs were already added to
-# fpath above; completion-only plugins (a dir with just a _name file) need
-# no sourcing. Custom plugins win over built-ins with the same name.
+# Source the discovered plugins. Plugin dirs were already added to fpath
+# above; completion-only plugins (a dir with just a _name file) need no
+# sourcing. Custom plugins win over built-ins with the same name.
 for plugin ($plugins); do
   if [[ -f "$ZSH_CUSTOM/plugins/$plugin/$plugin.plugin.zsh" ]]; then
     source "$ZSH_CUSTOM/plugins/$plugin/$plugin.plugin.zsh"
@@ -97,7 +96,7 @@ for plugin ($plugins); do
     source "$ZSH/plugins/$plugin/$plugin.plugin.zsh"
   fi
 done
-unset plugin is_plugin
+unset plugin
 
 # set completion colors to be the same as `ls`
 [[ -z "$LS_COLORS" ]] || zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
